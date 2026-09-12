@@ -18,6 +18,7 @@ export default {
       const st = document.createElement('style'); st.id = 'p-yt-css';
       st.textContent =
         '.p-yt{height:100%;position:relative;overflow:hidden}' +
+        '.p-yt .list.over{position:absolute;inset:0;background:rgba(11,11,15,.93);z-index:2}' +
         '.p-yt .list{height:100%;overflow:auto;padding:.6em .7em;scrollbar-width:none;' +
         'display:grid;gap:.6em;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));' +
         'align-content:start}' +
@@ -35,6 +36,7 @@ export default {
         '.p-yt .by{display:block;font-size:.71em;color:var(--dim2);overflow:hidden;' +
         'text-overflow:ellipsis;white-space:nowrap}' +
         '.p-yt .play{position:absolute;inset:0;background:#000;display:flex;flex-direction:column}' +
+        '.p-yt .play.hide{display:none !important}' +
         '.p-yt .play iframe{flex:1;width:100%;height:100%;border:0;display:block}' +
         '.p-yt .play .foot{flex:none;display:flex;align-items:center;gap:.6em;padding:.3em .6em;' +
         'background:#0c0c10;border-top:1px solid var(--line);font-size:.76em;color:var(--dim)}' +
@@ -50,6 +52,11 @@ export default {
     }
 
     let lists = [], sel = 0, playing = null, frame = null, alive = false, watch = 0;
+    let shelf = true;                 // 棚を出しているか（器の上に重ねる）
+    let vol = (ctx.cfg.vol == null) ? 100 : ctx.cfg.vol;
+    el.innerHTML = '<div class="play hide"></div><div class="list"></div>';
+    const playBox = el.querySelector('.play');
+    const listBox = el.querySelector('.list');
 
     function esc(s){
       return String(s == null ? '' : s)
@@ -58,10 +65,10 @@ export default {
 
     function drawList(){
       if (!lists.length){
-        el.innerHTML = '<div class="fail"><span>BGM の棚が読めませんでした</span></div>';
+        listBox.innerHTML = '<div class="fail"><span>BGM の棚が読めませんでした</span></div>';
         return;
       }
-      let h = '<div class="list">';
+      let h = '';
       lists.forEach(function(v, i){
         h += '<button class="it' + (i === sel ? ' sel' : '') + '" data-i="' + i + '">' +
              '<span class="th">' +
@@ -70,26 +77,29 @@ export default {
              '<span class="ti">' + esc(v.name) + '</span>' +
              '<span class="by">' + esc(v.by) + '</span></button>';
       });
-      h += '</div>';
-      el.innerHTML = h;
-      el.querySelectorAll('.it').forEach(function(b){
+      listBox.innerHTML = h;
+      listBox.classList.toggle('over', !!playing);
+      listBox.classList.toggle('hide', !shelf);
+      listBox.querySelectorAll('.it').forEach(function(b){
         b.addEventListener('click', function(){ sel = +b.dataset.i; play(lists[sel]); });
       });
     }
 
     function play(v){
       if (!v) return;
-      playing = v; alive = false;
+      playing = v; alive = false; shelf = false;
       const mute = ctx.cfg.mute ? 1 : 0;
       const src = ORIGIN + '/embed/videoseries?list=' + encodeURIComponent(v.id) +
         '&autoplay=1&mute=' + mute + '&enablejsapi=1&playsinline=1&rel=0&iv_load_policy=3' +
         '&origin=' + encodeURIComponent(location.origin);
-      el.innerHTML = '<div class="play"><iframe allow="autoplay; encrypted-media" ' +
+      playBox.classList.remove('hide');
+      playBox.innerHTML = '<iframe allow="autoplay; encrypted-media" ' +
         'allowfullscreen src="' + esc(src) + '"></iframe>' +
         '<div class="foot"><span class="nm">' + esc(v.name) + '</span>' +
-        '<span>決定 とめる／ながす　左右 曲送り　上下 盤へ　M ' +
-        (ctx.cfg.mute ? '音を出す' : '消音') + '　戻る 棚へ</span></div></div>';
-      frame = el.querySelector('iframe');
+        '<span class="tip"></span></div>';
+      listBox.classList.add('hide');
+      frame = playBox.querySelector('iframe');
+      tip();
       toggle.on = true;          // 流れている状態から始まる（最初の決定は「とめる」）
       // 器が生きているか確かめる。返事が無ければ弾かれたとみなす。
       clearTimeout(watch);
@@ -98,7 +108,7 @@ export default {
     }
 
     function failed(){
-      el.innerHTML = '<div class="fail"><b>枠の中では流せませんでした</b>' +
+      playBox.innerHTML = '<div class="fail"><b>枠の中では流せませんでした</b>' +
         '<span>この棚は埋め込みを断っているようです。<br>公式アプリなら流せます。</span>' +
         '<button class="b" data-act="app">公式アプリで開く</button>' +
         '<span>戻る で棚にもどります</span></div>';
@@ -115,11 +125,22 @@ export default {
       setTimeout(function(){ window.open(u, '_blank'); }, 700);
     }
 
-    function post(kind, func){
+    function tip(){
+      const t = playBox.querySelector('.tip');
+      if (t) t.textContent = '決定 とめる／ながす　左右 曲送り　上下 音量' + vol +
+        '　戻る 棚へ（鳴ったまま）';
+    }
+
+    function showShelf(){
+      shelf = true;
+      drawList();                       // 器は消さない。棚を上に重ねるだけ
+    }
+
+    function post(kind, func, args){
       if (!frame || !frame.contentWindow) return;
       const msg = (kind === 'listening')
         ? { event:'listening', id:1, channel:'widget' }
-        : { event:'command', func:func, args:[] };
+        : { event:'command', func:func, args: args || [] };
       try { frame.contentWindow.postMessage(JSON.stringify(msg), ORIGIN); } catch(e){}
     }
 
@@ -140,13 +161,13 @@ export default {
 
     function stop(){
       clearTimeout(watch);
-      playing = null; frame = null; alive = false;
+      playing = null; frame = null; alive = false; shelf = true;
+      playBox.classList.add('hide'); playBox.innerHTML = '';
       drawList();
     }
 
     function cols(){
-      const list = el.querySelector('.list');
-      return list ? Math.max(1, Math.floor(list.clientWidth / 150)) : 1;
+      return Math.max(1, Math.floor(listBox.clientWidth / 150));
     }
 
     // 棚を読む。index.html と同じ所に置いてある。
@@ -159,24 +180,22 @@ export default {
     return {
       el: el,
       onKey(e){
-        if (playing){
+        // 器が動いていて、棚を重ねていないとき＝「流している画面」
+        if (playing && !shelf){
           if (e.key === 'Escape' || e.key === 'Backspace' || e.key === 'GoBack'){
-            stop(); return true;            // 戻る＝棚へ（盤には渡さない）
+            showShelf(); return true;          // 棚へ。**鳴ったまま**
           }
           if (e.key === 'Enter' || e.key === ' '){ toggle(); return true; }
           if (e.key === 'ArrowRight'){ post('cmd','nextVideo'); return true; }
           if (e.key === 'ArrowLeft'){ post('cmd','previousVideo'); return true; }
-          if (e.key === 'm' || e.key === 'M'){
-            ctx.cfg.mute = !ctx.cfg.mute; ctx.save();
-            post('cmd', ctx.cfg.mute ? 'mute' : 'unMute');
-            const f = el.querySelector('.foot span:last-child');
-            if (f) f.textContent = '決定 とめる／ながす　左右 曲送り　上下 盤へ　M ' +
-              (ctx.cfg.mute ? '音を出す' : '消音') + '　戻る 棚へ';
-            return true;
+          if (e.key === 'ArrowUp' || e.key === 'ArrowDown'){
+            vol = Math.max(0, Math.min(100, vol + (e.key === 'ArrowUp' ? 10 : -10)));
+            ctx.cfg.vol = vol; ctx.save();
+            post('cmd', 'setVolume', [vol]);
+            post('cmd', vol === 0 ? 'mute' : 'unMute');
+            tip(); return true;
           }
-          // **これ以外は盤に渡す。** 全部食べてしまうと、鳴らしている間
-          // かたちも替えられない（上下で枠から出る・1〜5でかたち・W で窓替え）。
-          return false;
+          return false;                        // 1〜5 などは盤へ渡す
         }
         const c = cols();
         let n = sel;
@@ -185,7 +204,7 @@ export default {
         else if (e.key === 'ArrowDown') n = sel + c;
         else if (e.key === 'ArrowUp') n = sel - c;
         else if (e.key === 'Enter' || e.key === ' '){ play(lists[sel]); return true; }
-        else return false;
+        else return false;   // 戻る＝枠から出る（鳴っていてもそのまま鳴り続ける）
         if (n < 0 || n >= lists.length) return false;   // 端では盤にもどす
         sel = n; drawList();
         const cur = el.querySelector('.it.sel');

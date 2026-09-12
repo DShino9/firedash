@@ -3,7 +3,8 @@
 // いまの中身は仮。本番は Cloudflare の Worker が Google カレンダー（複数）を
 // 束ねた JSON を配り、ここはそれを描くだけ（端末では Google のログインを通さない）。
 // 配り口が決まったら SRC に入れる。形は下の karidata() と同じ。
-const SRC = '/ban/calendar.json';     // 入口の下にいるときだけ叩く
+const SRC = '/ban/calendar.json';      // 入口の下にいるときだけ叩く
+const LIST = '/ban/calendars.json';    // どのカレンダーがあるか（入り切りの一覧）
 const DOW = ['日','月','火','水','木','金','土'];
 const HOL = 'https://holidays-jp.github.io/api/v1/';   // 鍵不要・CORS 可
 
@@ -106,6 +107,14 @@ export default {
         '.p-cal .we .tm i{width:.4em;height:.4em;border-radius:50%;flex:none}',
         '.p-cal .we .ti{overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;',
         '-webkit-box-orient:vertical;word-break:break-all}',
+        '.p-cal .picks{flex:1;min-height:0;overflow:auto;padding:.3em .5em;scrollbar-width:none}',
+        '.p-cal .picks::-webkit-scrollbar{display:none}',
+        '.p-cal .pk{display:flex;align-items:center;gap:.5em;padding:.3em .5em;border-radius:8px;',
+        'font-size:.9em;border:2px solid transparent}',
+        '.p-cal .pk.sel{border-color:var(--accent);background:#152036}',
+        '.p-cal .pk .bx{color:var(--accent);width:1em}',
+        '.p-cal .pk i{width:.55em;height:.55em;border-radius:50%;flex:none}',
+        '.p-cal .pk .nm{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}',
         '.p-cal .foot{flex:none;display:flex;gap:.8em;align-items:center;padding:.2em .7em;',
         'border-top:1px solid var(--line);font-size:.7em;color:var(--dim2)}',
         '.p-cal .foot .kari{color:var(--warn)}'
@@ -114,6 +123,9 @@ export default {
     }
 
     let data = karidata();
+    let all = [];                    // 持っているカレンダー全部（入り切りの一覧）
+    let on = null;                   // 出しているものの id。null なら入口の既定
+    let pick = 0;                    // 入り切りの一覧で選んでいる行
     let view = 'month';
     let cur = new Date();            // 見ている月／週の起点
     let hols = {};
@@ -253,21 +265,75 @@ export default {
     }
 
     function foot(){
-      return '<div class="foot"><span>左右 前後　決定 月⇄週　T 今日</span>' +
+      const tips = view === 'pick' ? '上下 えらぶ　決定 入り切り　戻る 暦へ'
+                                   : '左右 前後　決定 月→週→選ぶ　上下 盤へ';
+      return '<div class="foot"><span>' + tips + '</span>' +
         (data.kari ? '<span class="kari">仮の中身（Google はまだ繋いでいません）</span>' : '') +
         '</div>';
     }
 
     function paint(){
-      if (view === 'week') paintWeek(); else paintMonth();
+      if (view === 'pick') paintPick();
+      else if (view === 'week') paintWeek();
+      else paintMonth();
     }
 
     function pull(){
       if (!underGate()){ data = karidata(); paint(); return; }
-      fetch(SRC, { cache:'no-store' })
+      const q = (on && on.length) ? ('?cals=' + encodeURIComponent(on.join(','))) : '';
+      fetch(SRC + q, { cache:'no-store' })
         .then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); })
         .then(function(j){ data = j; paint(); })
         .catch(function(){ data = karidata(); paint(); });
+    }
+
+    // 持っているカレンダーの一覧。入り切りはここから選ぶ。
+    function pullList(){
+      if (!underGate()) return;
+      fetch(LIST, { cache:'no-cache' })
+        .then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); })
+        .then(function(j){
+          all = j.cals || [];
+          if (!on){
+            // はじめては入口の既定（自分＋家族）。以後は端末の控えに従う。
+            const saved = ctx.cfg.cals;
+            on = (saved && saved.length) ? saved.slice() : (j.on || []).slice();
+          }
+          paint();
+        }).catch(function(){});
+    }
+
+    function toggle(i){
+      const c = all[i];
+      if (!c || !on) return;
+      const k = on.indexOf(c.id);
+      if (k >= 0){ if (on.length <= 1) { ctx.note('最後の1つは消せません'); return; } on.splice(k,1); }
+      else on.push(c.id);
+      ctx.cfg.cals = on.slice();
+      ctx.save();
+      paint();
+      pull();
+    }
+
+    // 入り切りの画面
+    function paintPick(){
+      let h = '<div class="hd"><b>出すカレンダー</b>' +
+        '<span class="sub">決定で入り切り</span><span class="sp"></span>' +
+        '<span class="md">選ぶ</span></div><div class="picks">';
+      if (!all.length){
+        h += '<div class="pk">まだ読めていません（入口ごしに開くと出ます）</div>';
+      }
+      all.forEach(function(c, i){
+        const yes = on && on.indexOf(c.id) >= 0;
+        h += '<div class="pk' + (i === pick ? ' sel' : '') + '">' +
+             '<span class="bx">' + (yes ? '■' : '□') + '</span>' +
+             '<i style="background:' + c.color + '"></i>' +
+             '<span class="nm">' + esc(c.name) + '</span></div>';
+      });
+      h += '</div>' + foot();
+      el.innerHTML = h;
+      const cur = el.querySelector('.pk.sel');
+      if (cur && cur.scrollIntoView) cur.scrollIntoView({ block:'nearest' });
     }
 
     function move(n){
@@ -278,6 +344,7 @@ export default {
     }
 
     loadHol(new Date().getFullYear());
+    pullList();
     pull();
     let last = Date.now();
 
@@ -290,7 +357,7 @@ export default {
           touched = 0; cur = new Date(); paint();
         }
       },
-      refresh(){ pull(); },
+      refresh(){ pullList(); pull(); },
       resize(){
         const w = el.clientWidth, hgt = el.clientHeight;
         if (!w || !hgt) return;
@@ -300,14 +367,28 @@ export default {
         paint();
       },
       onKey(e){
+        // **リモコンには文字キーが無い。** 十字・決定・戻るだけで全部に届くこと。
+        if (view === 'pick'){
+          if (e.key === 'ArrowDown'){ pick = Math.min(pick+1, Math.max(all.length-1,0)); paintPick(); return true; }
+          if (e.key === 'ArrowUp'){ pick = Math.max(pick-1, 0); paintPick(); return true; }
+          if (e.key === 'Enter' || e.key === ' '){ toggle(pick); return true; }
+          if (e.key === 'Escape' || e.key === 'Backspace' || e.key === 'GoBack'){
+            view = 'month'; paint(); return true;
+          }
+          return true;                       // 選んでいる間は盤に取られない
+        }
         if (e.key === 'ArrowRight'){ move(1); return true; }
         if (e.key === 'ArrowLeft'){ move(-1); return true; }
         if (e.key === 'Enter' || e.key === ' '){
-          view = (view === 'month') ? 'week' : 'month';
+          view = (view === 'month') ? 'week' : (view === 'week' ? 'pick' : 'month');
           touched = Date.now(); paint(); return true;
         }
-        if (e.key === 't' || e.key === 'T'){
+        if (e.key === 't' || e.key === 'T'){          // 鍵盤のときだけの近道
           cur = new Date(); touched = 0; paint(); return true;
+        }
+        if (e.key === 'Escape' || e.key === 'Backspace' || e.key === 'GoBack'){
+          cur = new Date(); touched = 0; paint();     // 出るときは今日に戻しておく
+          return false;                                // 枠から出るのは盤にまかせる
         }
         return false;          // 上下は盤へ返す（枠から出るため）
       }

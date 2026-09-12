@@ -110,6 +110,9 @@ function drawBar(){
          '<span class="n">' + l.key + '</span>' + l.label + '</button>';
   });
   h += '<span class="sp"></span>';
+  h += '<button class="tab" data-nav data-act="swap">窓を替える</button>';
+  h += '<button class="tab' + (zoom >= 0 ? ' on' : '') + '" data-nav data-act="zoom">' +
+       (zoom >= 0 ? 'もどす' : '大きく') + '</button>';
   h += '<span class="now" id="barnow"></span>';
   h += '<button class="tab" data-nav data-act="cfg">⚙ 設定</button>';
   bar.innerHTML = h;
@@ -117,7 +120,8 @@ function drawBar(){
 
 function drawHelp(){
   const t = {
-    board : '<b>十字</b>枠をえらぶ　<b>決定</b>中に入る　<b>W</b>窓を替える　<b>F</b>大きく　<b>1〜5</b>かたち',
+    board : '<b>十字</b>えらぶ（上で帯へ）　<b>決定</b>中に入る　'
+          + '<span style="color:var(--dim2)">帯：かたち・窓を替える・大きく・設定</span>',
     inside: '<b>十字/決定</b>窓の中を操作　<b>戻る</b>盤にもどる',
     pick  : '<b>十字</b>えらぶ　<b>決定</b>この枠に入れる　<b>戻る</b>やめる',
     cfg   : '<b>十字</b>えらぶ　<b>左右</b>変える　<b>戻る</b>とじる'
@@ -234,11 +238,13 @@ function focusables(){
   return Array.prototype.slice.call(root.querySelectorAll('[data-nav]'))
     .filter(function(el){ return el.offsetParent !== null; });
 }
+let lastSlot = 0;      // 帯の「窓を替える」「大きく」が効く先
 function setFocus(el){
   if (!el) return;
   if (focusEl) focusEl.classList.remove('focus');
   focusEl = el;
   focusEl.classList.add('focus');
+  if (el.dataset && el.dataset.act === 'slot') lastSlot = +el.dataset.i;
 }
 function nav(dir){
   const els = focusables();
@@ -410,8 +416,7 @@ function refreshPanels(){
 // ---- 大きく（一時的に1枚） -------------------------------------------
 function toggleZoom(){
   if (zoom >= 0){ zoom = -1; drawBoard(); return; }
-  if (!focusEl || focusEl.dataset.act !== 'slot') return;
-  zoom = +focusEl.dataset.i;
+  zoom = Math.min(lastSlot, slotCount()-1);
   drawBoard();
 }
 
@@ -498,6 +503,11 @@ function act(el){
   const a = el.dataset.act;
   if (a === 'layout') setLayout(el.dataset.id);
   else if (a === 'cfg') openCfg();
+  else if (a === 'swap') openPick(Math.min(lastSlot, slotCount()-1));
+  else if (a === 'zoom'){
+    if (zoom >= 0){ zoom = -1; drawBoard(); }
+    else { zoom = Math.min(lastSlot, slotCount()-1); drawBoard(); }
+  }
   else if (a === 'slot') enterInside(+el.dataset.i);
   else if (a === 'put') put(el.dataset.id);
   else if (a === 'cfgclose') closeCfg();
