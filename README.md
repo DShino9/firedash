@@ -4,11 +4,17 @@ Fire TV（リモコン）と Echo Show 15（指・壁掛け）で使う大画面
 決定事項は [要件.md](要件.md)（番号付き）。全体図は DS9i vault の
 「システムマップ/プロジェクト/壁の盤 firedash.md」。
 
-## 見る
+## どこで開くか
 
-    preview_start の firedash（:8797）
+| どこ | 住所 |
+|---|---|
+| 道具棚から | 「壁の盤」の札（入口の下では `/ban/` へ行く） |
+| 入口ごし | https://ds9.d-shino.workers.dev/ban/ （札が要る） |
+| 直に | https://dshino9.github.io/firedash/ |
+| 手元で直す間 | `preview_start` の firedash（:8797） |
 
 `Bash` で直接 http.server を起こさない（作業場の決まりごと 3）。
+更新は `git push` だけ（GitHub Pages が配る）。
 
 ## 操作
 
@@ -54,3 +60,4 @@ export default {
 - 時計と天気 …… 動く（Open-Meteo を直に引く）
 - カレンダー／YouTube／耳読 …… **仮の中身**。繋ぎ込みはこれから（要件 5・6・7）
 - APK の器 …… 未着手（要件 2：Web を仕上げてから）
+- 公開 …… 済み。道具棚に載せ、入口 ds9 の下に `/ban/` を開けた（札が要る）
