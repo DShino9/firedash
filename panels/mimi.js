@@ -1,13 +1,36 @@
-// 耳読の処理状況。いまは仮の中身。
-// 本番は 家の中は Mac 直（http://<Mac>:8770/api/queue）、届かなければ Cloudflare の控え（要件 7）。
-const MAC = null;    // 例：'http://mac.local:8770'
-const CLOUD = null;  // 例：'https://frosty-bird-8f19.d-shino.workers.dev/api/queue'
+// 耳読の処理状況（要件 7）。
+//
+// 取り方は2通り。速い順に試す。
+//  ① Mac 直（設定の「Mac のあて先」）… 家の中だけ。20秒ごとに最新が出る。
+//     **ただし盤が https で配られている間は、ブラウザが http の Mac を塞ぐ**
+//     （混在内容）。APK（WebView）で包めばこちらが使える。塞がれる組み合わせの
+//     ときは試さない（毎回失敗するだけなので）。
+//  ② 入口（ds9）の控え … /ban/status.json。Mac が置きにきたもの。札の内側。
+//     どこからでも読めるが、置くのは「変わった時だけ・作っている間は5分」。
+//     入口の KV は1日1000回で止まるため（実際に止めた事がある）。
+const GATE = '/ban/status.json';
 
-function karidata(){
-  return { kari:true, from:'仮',
-    now:{ title:'（仮）ユング自伝', chapter:12, chapters:40, left:'2時間14分' },
-    busy:'（仮）作成後の再検査をしています',
-    queue:7, held:1, allLeft:'（仮）38時間', rate:24 };
+function underGate(){
+  return !/(^|\.)github\.io$/.test(location.hostname) && location.protocol !== 'file:';
+}
+function macUrl(cfg){
+  let m = (cfg.mac || '').trim();
+  if (!m) return '';
+  if (!/^https?:\/\//.test(m)) m = 'http://' + m;
+  if (!/:\d+$/.test(m.replace(/^https?:\/\//,''))) m += ':8770';
+  return m.replace(/\/+$/,'') + '/api/ban';
+}
+// https の盤から http の Mac は読めない（ブラウザが塞ぐ）
+function macBlocked(u){
+  return location.protocol === 'https:' && u.indexOf('http://') === 0;
+}
+
+function ago(sec){
+  if (!sec) return '';
+  const d = Math.max(0, Math.round(Date.now()/1000 - sec));
+  if (d < 90) return '';
+  if (d < 3600) return Math.round(d/60) + '分前の分';
+  return Math.round(d/3600) + '時間前の分';
 }
 
 export default {
@@ -24,56 +47,95 @@ export default {
         '.p-mimi .sub{color:var(--dim);font-size:.8em;font-variant-numeric:tabular-nums}' +
         '.p-mimi .bar{height:.5em;border-radius:.25em;background:#0c0c10;border:1px solid var(--line);' +
         'overflow:hidden}' +
-        '.p-mimi .bar i{display:block;height:100%;background:var(--ok)}' +
+        '.p-mimi .bar i{display:block;height:100%;background:var(--ok);transition:width .4s}' +
         '.p-mimi .busy{color:var(--warn);font-size:.8em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}' +
         '.p-mimi .nums{display:flex;gap:1.1em;margin-top:auto;padding-top:.4em;' +
         'border-top:1px solid var(--line)}' +
         '.p-mimi .nums div{display:flex;flex-direction:column}' +
         '.p-mimi .nums b{font-size:1.25em;font-weight:500;font-variant-numeric:tabular-nums}' +
         '.p-mimi .nums span{color:var(--dim2);font-size:.72em}' +
-        '.p-mimi .kari{color:var(--warn);font-size:.72em}' +
-        '.p-mimi .dead{color:var(--dim2);font-size:.85em;margin:auto;text-align:center}';
+        '.p-mimi .old{color:var(--dim2);font-size:.72em}' +
+        '.p-mimi .dead{color:var(--dim2);font-size:.9em;margin:auto;text-align:center;line-height:1.7}' +
+        '.p-mimi .dead b{display:block;color:var(--dim);font-weight:500;font-size:1.1em}';
       document.head.appendChild(st);
     }
 
-    let d = karidata();
+    let d = null, why = '', from = '';
 
     function paint(){
       if (!d){
-        el.innerHTML = '<div class="dead">耳読に届きません<br><span style="font-size:.85em">Mac が寝ているか、外にいます</span></div>';
+        el.innerHTML = '<div class="dead"><b>耳読に届きません</b>' +
+          (why ? '<span>' + why + '</span>' : '') + '</div>';
         return;
       }
-      const pct = d.now ? Math.round(d.now.chapter / d.now.chapters * 100) : 0;
+      const n = d.now;
+      const pct = (n && n.chapters) ? Math.round(n.chapter / n.chapters * 100) : 0;
       let h = '';
-      if (d.now){
-        h += '<div class="ttl">' + d.now.title + '</div>' +
-             '<div class="sub">' + d.now.chapter + ' / ' + d.now.chapters + ' 章　残り ' + d.now.left + '</div>' +
+      if (n){
+        h += '<div class="ttl">' + esc(n.title) + '</div>' +
+             '<div class="sub">' + n.chapter + ' / ' + n.chapters + ' ' + esc(n.unit || '章') +
+             (n.phase ? '　' + esc(n.phase) : '') +
+             '　残り ' + esc(n.left || '—') + '</div>' +
              '<div class="bar"><i style="width:' + pct + '%"></i></div>';
       } else {
-        h += '<div class="ttl">作っている本はありません</div>';
+        h += '<div class="ttl">作っている本はありません</div>' +
+             '<div class="sub">' + (d.engine ? '声の器は起きています' : '声の器は止まっています') + '</div>';
       }
-      if (d.busy) h += '<div class="busy">裏の作業：' + d.busy + '</div>';
+      if (d.busy) h += '<div class="busy">裏の作業：' + esc(d.busy) + '</div>';
       h += '<div class="nums">' +
            '<div><b>' + d.queue + '</b><span>待ち</span></div>' +
            '<div><b>' + d.held + '</b><span>保留</span></div>' +
-           '<div><b>' + d.allLeft + '</b><span>全部揃うのは</span></div>' +
+           '<div><b>' + esc(d.allLeft) + '</b><span>全部揃うのは</span></div>' +
            '<div><b>' + d.rate + '%</b><span>稼働（24h）</span></div>' +
            '</div>';
-      if (d.kari) h += '<div class="kari">仮の中身です。耳読にはまだ繋いでいません（要件 7）</div>';
+      const old = ago(d.at);
+      if (old || from === 'gate'){
+        h += '<div class="old">' + (old ? old + '　' : '') +
+             (from === 'mac' ? 'Mac から直に' : '入口の控えから') + '</div>';
+      }
       el.innerHTML = h;
+    }
+    function esc(s){
+      return String(s == null ? '' : s)
+        .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    function get(url, ms){
+      // AbortController は Fire OS の WebView にもある。無ければ待つだけ。
+      let ctl = null, t = 0;
+      if (typeof AbortController !== 'undefined'){
+        ctl = new AbortController();
+        t = setTimeout(function(){ ctl.abort(); }, ms);
+      }
+      const opt = { cache:'no-store' };
+      if (ctl) opt.signal = ctl.signal;
+      return fetch(url, opt).then(function(r){
+        if (t) clearTimeout(t);
+        if (!r.ok) throw new Error(r.status);
+        return r.json();
+      });
     }
 
     function pull(){
+      const mac = macUrl(ctx.cfg);
       const tries = [];
-      if (MAC) tries.push(MAC + '/api/queue');
-      if (CLOUD) tries.push(CLOUD);
-      if (!tries.length){ d = karidata(); paint(); return; }
+      if (mac && !macBlocked(mac)) tries.push(['mac', mac]);
+      if (underGate()) tries.push(['gate', GATE]);
+      if (!tries.length){
+        d = null;
+        why = mac ? 'この盤は https で配られているので、http の Mac には届きません（APK で包めば直に読めます）'
+                  : '設定で「Mac のあて先」を入れるか、入口（ds9）ごしに開いてください';
+        paint(); return;
+      }
       (function go(i){
-        if (i >= tries.length){ d = null; paint(); return; }
-        fetch(tries[i], { cache:'no-store' })
-          .then(function(r){ if (!r.ok) throw new Error(r.status); return r.json(); })
-          .then(function(j){ d = j; paint(); })
-          .catch(function(){ go(i+1); });
+        if (i >= tries.length){
+          d = null;
+          why = 'Mac が寝ているか、まだ控えが置かれていません';
+          paint(); return;
+        }
+        get(tries[i][1], 4000).then(function(j){
+          d = j; from = tries[i][0]; why = ''; paint();
+        }).catch(function(){ go(i+1); });
       })(0);
     }
 
@@ -82,8 +144,12 @@ export default {
 
     return {
       el: el,
-      tick(){ if (Date.now() - last > 20*1000){ last = Date.now(); pull(); } },
-      refresh(){ pull(); }
+      tick(){
+        // Mac 直なら 20秒、控えなら 60秒。控えは5分ごとにしか変わらない
+        const span = (from === 'mac') ? 20000 : 60000;
+        if (Date.now() - last > span){ last = Date.now(); pull(); }
+      },
+      refresh(){ last = Date.now(); pull(); }
     };
   }
 };

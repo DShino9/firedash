@@ -34,7 +34,7 @@ const DEF = {
     'l-3':['youtube','clock','mimi'],
     'l-4':['clock','calendar','youtube','mimi']
   },
-  cfg:{ scale:1, edge:0, lat:35.6812, lon:139.7671, place:'東京' }
+  cfg:{ scale:1, edge:0, lat:35.6812, lon:139.7671, place:'東京', mac:'' }
 };
 
 let state = load();
@@ -324,7 +324,10 @@ const CFGROWS = [
     kind:'num', min:0, max:80, step:4, fmt:function(v){ return v + 'px'; } },
   { k:'place', t:'天気の場所', d:'表示だけに使う名前', kind:'text' },
   { k:'lat',   t:'緯度', d:'天気を引く座標', kind:'text' },
-  { k:'lon',   t:'経度', d:'天気を引く座標', kind:'text' }
+  { k:'lon',   t:'経度', d:'天気を引く座標', kind:'text' },
+  // 自宅のあて先は公開リポジトリに書かない。端末の中にだけ置く。
+  { k:'mac',   t:'Mac のあて先', d:'例：mac.local（家の中で耳読を直に読む。空でも入口の控えは出る）',
+    kind:'text' }
 ];
 function openCfg(){
   let h = '<div class="in"><h2>設定</h2>';
