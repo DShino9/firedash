@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>壁の盤</title>
+<meta name="theme-color" content="#0b0b0f">
+<style>
+:root{
+  --bg:#0b0b0f; --bg2:#15151c; --bg3:#1d1d26; --line:#282833;
+  --fg:#f0f0f5; --dim:#9a9aab; --dim2:#6a6a7a;
+  --accent:#6ea8fe; --ok:#5fbf7f; --warn:#e5a34a; --danger:#e06c75;
+  --scale:1;            /* 文字の大きさ。設定で変える */
+  --edge:0px;           /* TV の縁。設定で内側に寄せる */
+  --gap:10px;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--fg);
+  font:calc(16px * var(--scale))/1.5 -apple-system,BlinkMacSystemFont,"Hiragino Sans","Noto Sans JP",sans-serif;
+  user-select:none}
+button{font:inherit;color:inherit;background:none;border:0;cursor:pointer}
+.hide{display:none !important}
+
+/* ---- 全体の枠取り ---- */
+#app{position:fixed;inset:0;padding:var(--edge);display:flex;flex-direction:column;gap:var(--gap)}
+
+/* ---- 上の帯（型えらび・時刻・設定） ---- */
+#bar{flex:none;height:calc(46px * var(--scale));display:flex;align-items:center;gap:8px;
+  padding:0 4px}
+#bar .ttl{font-size:.84em;color:var(--dim2);letter-spacing:.1em;margin-right:4px}
+.tab{padding:.42em .8em;border-radius:10px;background:var(--bg2);border:1px solid var(--line);
+  font-size:.88em;display:flex;align-items:center;gap:.45em;white-space:nowrap}
+.tab .n{font-variant-numeric:tabular-nums;color:var(--dim)}
+.tab.on{border-color:var(--accent);color:var(--accent);background:#152036}
+.tab.on .n{color:var(--accent)}
+#bar .sp{flex:1}
+#bar .now{font-variant-numeric:tabular-nums;color:var(--dim);font-size:.9em}
+
+/* ---- 盤 ---- */
+#board{flex:1;min-height:0;display:grid;gap:var(--gap)}
+#board.l-1{grid-template-columns:1fr;grid-template-rows:1fr}
+#board.l-2yoko{grid-template-columns:1fr 1fr;grid-template-rows:1fr}
+#board.l-2tate{grid-template-columns:1fr;grid-template-rows:1fr 1fr}
+#board.l-3{grid-template-columns:1.4fr 1fr;grid-template-rows:1fr 1fr}
+#board.l-3 .slot:nth-child(1){grid-row:1/3}
+#board.l-4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+
+.slot{position:relative;min-width:0;min-height:0;display:flex;flex-direction:column;
+  background:var(--bg2);border:2px solid var(--line);border-radius:14px;overflow:hidden}
+.slot.focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(110,168,254,.22)}
+.slot.inside{border-color:var(--ok);box-shadow:0 0 0 3px rgba(95,191,127,.22)}
+.slot > .head{flex:none;height:calc(34px * var(--scale));display:flex;align-items:center;gap:.5em;
+  padding:0 .7em;border-bottom:1px solid var(--line);background:#12121a;font-size:.85em}
+.slot > .head .ic{font-size:1.15em}
+.slot > .head .nm{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  color:var(--dim)}
+.slot > .head .sw{padding:.15em .5em;border-radius:7px;color:var(--dim2);font-size:.9em}
+.slot.inside > .head .nm{color:var(--ok)}
+.slot > .body{flex:1;min-height:0;position:relative;overflow:hidden}
+.slot.empty > .body{display:flex;align-items:center;justify-content:center;
+  color:var(--dim2);font-size:.95em;flex-direction:column;gap:.6em}
+
+/* ---- 窓えらび ---- */
+#pick{position:fixed;inset:0;z-index:60;background:rgba(8,8,11,.88);
+  display:flex;align-items:center;justify-content:center;flex-direction:column;gap:1.2em}
+#pick h2{margin:0;font-size:1.05em;color:var(--dim)}
+#pick .grid{display:flex;gap:1em;flex-wrap:wrap;justify-content:center;max-width:min(92vw,1100px)}
+.pit{width:calc(150px * var(--scale));padding:1.1em .8em;border-radius:16px;
+  background:var(--bg2);border:2px solid var(--line);display:flex;flex-direction:column;
+  align-items:center;gap:.45em;text-align:center}
+.pit .ic{font-size:2.1em;line-height:1}
+.pit .nm{font-size:.9em}
+.pit .hint{font-size:.74em;color:var(--dim2);line-height:1.35}
+.pit.focus{border-color:var(--accent);background:#152036;transform:scale(1.04)}
+.pit.cur{border-color:var(--ok)}
+#pick .note{color:var(--dim2);font-size:.8em}
+
+/* ---- 設定 ---- */
+#cfg{position:fixed;inset:0;z-index:70;background:rgba(8,8,11,.94);overflow:auto;
+  padding:calc(28px * var(--scale)) 1em}
+#cfg .in{max-width:640px;margin:0 auto;display:flex;flex-direction:column;gap:1.1em}
+#cfg h2{margin:0;font-size:1.1em}
+.row{background:var(--bg2);border:2px solid var(--line);border-radius:12px;padding:.8em 1em;
+  display:flex;align-items:center;gap:1em}
+.row.focus{border-color:var(--accent)}
+.row .lb{flex:1;min-width:0}
+.row .lb b{display:block;font-weight:600;font-size:.95em}
+.row .lb span{display:block;color:var(--dim2);font-size:.78em;line-height:1.4}
+.row .val{font-variant-numeric:tabular-nums;color:var(--accent);min-width:4em;text-align:right}
+.row input[type=text]{background:#0c0c10;border:1px solid var(--line);color:var(--fg);
+  border-radius:8px;padding:.5em .6em;width:9em;font:inherit;font-size:.9em}
+
+/* ---- 言づて ---- */
+#note{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(18px + var(--edge));z-index:80;
+  background:#22222b;border:1px solid var(--line);border-radius:11px;padding:.55em 1em;
+  font-size:.86em;color:var(--fg);opacity:0;transition:opacity .2s;pointer-events:none;
+  max-width:80vw;text-align:center}
+#note.on{opacity:1}
+
+/* ---- 下の手引き ---- */
+#help{flex:none;height:calc(22px * var(--scale));display:flex;align-items:center;gap:1.2em;
+  padding:0 6px;color:var(--dim2);font-size:.76em;white-space:nowrap;overflow:hidden}
+#help b{color:var(--dim);font-weight:600}
+</style>
+</head>
+<body>
+<div id="app">
+  <div id="bar"></div>
+  <div id="board"></div>
+  <div id="help"></div>
+</div>
+<div id="pick" class="hide"></div>
+<div id="cfg" class="hide"></div>
+<div id="note"></div>
+<script type="module" src="./app.js"></script>
+</body>
+</html>
