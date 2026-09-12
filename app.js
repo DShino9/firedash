@@ -34,7 +34,7 @@ const DEF = {
     'l-3':['youtube','clock','mimi'],
     'l-4':['clock','calendar','youtube','mimi']
   },
-  cfg:{ scale:1, edge:0, lat:35.6812, lon:139.7671, place:'東京', mac:'' }
+  cfg:{ scale:1, edge:0, lat:35.6812, lon:139.7671, place:'東京', mac:'', mute:false }
 };
 
 let state = load();
@@ -400,10 +400,12 @@ document.addEventListener('keydown', function(e){
   if (mode === 'inside'){
     const i = insideIndex();
     const inst = i >= 0 ? live[i] : null;
+    // 窓に先に渡す。流している YouTube の「戻る」は棚へ戻るためのもので、
+    // 盤が先に取ると枠から出てしまう（窓が true を返したら盤は動かない）。
+    if (inst && inst.onKey && inst.onKey(e)){ e.preventDefault(); return; }
     if (e.key === 'Escape' || e.key === 'Backspace' || e.key === 'GoBack'){
       e.preventDefault(); leaveInside(); return;
     }
-    if (inst && inst.onKey && inst.onKey(e)){ e.preventDefault(); return; }
     if (DIRS[e.key]){ e.preventDefault(); leaveInside(); nav(DIRS[e.key]); return; }
     return;
   }

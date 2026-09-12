@@ -1,0 +1,47 @@
+{
+ "note": "壁の盤の YouTube の窓に出す BGM の棚。1件足すだけで並びが増える。id は YouTube のプレイリスト（PL…）。thumb は oEmbed が返す絵札。",
+ "lists": [
+  {
+   "id": "PLc2E-LG3LmTQqdcgYPWbp_P5DXUWrPoUn",
+   "genre": "ピアノ",
+   "name": "作業用・勉強用・睡眠用BGM【長時間ピアノ】− CANACANA",
+   "by": "CANACANA family",
+   "thumb": "https://i.ytimg.com/vi/ZrmqqFUVT8Y/hqdefault.jpg"
+  },
+  {
+   "id": "PLYyJCobshLZl0dSZ82CZhWOX9lMGuToI6",
+   "genre": "カフェ・ジャズ",
+   "name": "HAPPY CAFE MUSIC",
+   "by": "Cafe Music BGM channel",
+   "thumb": "https://i.ytimg.com/vi/x_z76tNIZ20/hqdefault.jpg"
+  },
+  {
+   "id": "PLAQU_x2Nn7Z8sGyCbQZaRiA-9vc7FHh1C",
+   "genre": "落ち着くカフェ",
+   "name": "カフェで流れてそうな落ち着く曲",
+   "by": "あまはる",
+   "thumb": "https://i.ytimg.com/vi/S0u2hM83jhE/hqdefault.jpg"
+  },
+  {
+   "id": "PL6fhs6TSspZv0F0YgsG-p7Mn189CU2XKS",
+   "genre": "lofi",
+   "name": "Lofi Fruits Music - lofi hip hop beats to st",
+   "by": "Lofi Fruits",
+   "thumb": "https://i.ytimg.com/vi/D_NghDPSMv4/hqdefault.jpg"
+  },
+  {
+   "id": "PLzQ2jmB5jHhrxF60eVZNOrn-GX98phIag",
+   "genre": "自然音・川",
+   "name": "【BGM】集中力アップ！自然環境音・川のせせらぎ｜勉強用・作業用BGM｜Relaxing",
+   "by": "Sonia Ernesto Macovele",
+   "thumb": "https://i.ytimg.com/vi/B3UM8TizqYQ/hqdefault.jpg"
+  },
+  {
+   "id": "PLDj6ZOi17OBFmP9JRDM8fMmbYAh-q6aX7",
+   "genre": "店内BGM",
+   "name": "作業用BGM/勉強/睡眠/リモートワーク/店内BGM & オリジナルアニメーション",
+   "by": "トーマス大森音楽工房",
+   "thumb": "https://i.ytimg.com/vi/4cV04CHRIT0/hqdefault.jpg"
+  }
+ ]
+}
