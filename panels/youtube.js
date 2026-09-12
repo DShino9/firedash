@@ -93,7 +93,11 @@ export default {
         '&autoplay=1&mute=' + mute + '&enablejsapi=1&playsinline=1&rel=0&iv_load_policy=3' +
         '&origin=' + encodeURIComponent(location.origin);
       playBox.classList.remove('hide');
+      // **referrerpolicy を器に直に書く。** 頁ぜんたいの決まりが no-referrer でも、
+      // ここだけは呼び出し元（住所の頭）を伝える。伝わらないと YouTube は
+      // **エラー153（動画プレーヤーの設定エラー）** で断る（入口ごしで実機確認）。
       playBox.innerHTML = '<iframe allow="autoplay; encrypted-media" ' +
+        'referrerpolicy="strict-origin-when-cross-origin" ' +
         'allowfullscreen src="' + esc(src) + '"></iframe>' +
         '<div class="foot"><span class="nm">' + esc(v.name) + '</span>' +
         '<span class="tip"></span></div>';
