@@ -11,7 +11,12 @@
 const GATE = '/ban/status.json';
 
 function underGate(){
-  return !/(^|\.)github\.io$/.test(location.hostname) && location.protocol !== 'file:';
+  // 入口（ds9）の下にいるか。github.io に直で置いた時と、手元の確認用の
+  // サーバーでは控えが無いので叩きにいかない（毎回 404 になるだけ）。
+  const h = location.hostname;
+  if (/(^|\.)github\.io$/.test(h)) return false;
+  if (h === 'localhost' || h === '127.0.0.1' || h === '::1') return false;
+  return location.protocol !== 'file:';
 }
 function macUrl(cfg){
   let m = (cfg.mac || '').trim();
