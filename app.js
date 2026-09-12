@@ -125,68 +125,90 @@ function drawHelp(){
   help.innerHTML = t[mode] || '';
 }
 
-// 枠を組み直す。窓は作り直さず、使い回せるものは残す。
+// 盤の枠は、**一度作ったら動かさない。**
+// DOM から外したり付け直したりすると iframe が読み直され、BGM が鳴り止む
+// （2026-09-12 に実際そうなった）。かたちを変えるときは、置き場所（grid の
+// 行と列）だけを書き換え、使わない枠は隠す。
+const CELLS = {
+  'l-1':     [{c:'1', r:'1'}],
+  'l-2yoko': [{c:'1', r:'1'}, {c:'2', r:'1'}],
+  'l-2tate': [{c:'1', r:'1'}, {c:'1', r:'2'}],
+  'l-3':     [{c:'1', r:'1 / 3'}, {c:'2', r:'1'}, {c:'2', r:'2'}],
+  'l-4':     [{c:'1', r:'1'}, {c:'2', r:'1'}, {c:'1', r:'2'}, {c:'2', r:'2'}]
+};
+let POOL = [];      // { el, inst, pid } 一度作った枠。使い回す
+
+function slotEl(i){
+  for (let k=0;k<POOL.length;k++){
+    if (!POOL[k].el.classList.contains('hide') && +POOL[k].el.dataset.i === i) return POOL[k].el;
+  }
+  return null;
+}
+
+function makeSlot(pid){
+  const p = pid ? byId[pid] : null;
+  const el = document.createElement('div');
+  el.className = 'slot' + (p ? '' : ' empty');
+  el.dataset.nav = '';
+  el.dataset.act = 'slot';
+  el.tabIndex = -1;
+  const head = document.createElement('div');
+  head.className = 'head';
+  head.innerHTML = '<span class="ic">' + (p ? p.icon : '➕') + '</span>' +
+    '<span class="nm">' + (p ? p.name : '空き') + '</span>' +
+    '<span class="sw">替える ▾</span>';
+  el.appendChild(head);
+  const body = document.createElement('div');
+  body.className = 'body';
+  el.appendChild(body);
+  let inst = null;
+  if (p){
+    inst = p.create(ctx);
+    inst._pid = p.id;
+    body.appendChild(inst.el);
+  } else {
+    body.innerHTML = '<div>窓がありません</div>' +
+      '<div style="font-size:.8em;color:var(--dim2)">決定 → 窓をえらぶ</div>';
+  }
+  board.appendChild(el);            // **付けるのはここ一回だけ**
+  return { el: el, inst: inst, pid: pid || null };
+}
+
 function drawBoard(){
   const n = slotCount();
   const want = [];
   for (let i=0;i<n;i++){ const p = panelAt(i); want.push(p ? p.id : null); }
 
-  // 生きている窓のうち、もう要らないものを片づける
-  live.forEach(function(inst, i){
-    if (!inst) return;
-    if (want.indexOf(inst._pid) < 0 || i >= n){
-      if (inst.destroy) inst.destroy();
-      live[i] = null;
-    }
-  });
-
+  const cells = CELLS[zoom >= 0 ? 'l-1' : state.layout];
   board.className = 'l-' + (zoom >= 0 ? '1' : L[state.layout].id.replace(/^l-/,''));
-  board.innerHTML = '';
-  const next = [];
+
+  const taken = [];
+  live = [];
   for (let i=0;i<n;i++){
-    const p = want[i] ? byId[want[i]] : null;
-    const slot = document.createElement('div');
-    slot.className = 'slot' + (p ? '' : ' empty');
-    slot.dataset.nav = '';
-    slot.dataset.act = 'slot';
-    slot.dataset.i = i;
-    slot.tabIndex = -1;
-
-    const head = document.createElement('div');
-    head.className = 'head';
-    head.innerHTML = '<span class="ic">' + (p ? p.icon : '➕') + '</span>' +
-      '<span class="nm">' + (p ? p.name : '空き') + '</span>' +
-      '<span class="sw">替える ▾</span>';
-    slot.appendChild(head);
-
-    const body = document.createElement('div');
-    body.className = 'body';
-    slot.appendChild(body);
-
-    if (p){
-      // 使い回せる窓を探す
-      let reuse = null;
-      for (let j=0;j<live.length;j++){
-        if (live[j] && live[j]._pid === p.id && next.indexOf(live[j]) < 0){ reuse = live[j]; break; }
-      }
-      const inst = reuse || p.create(ctx);
-      inst._pid = p.id;
-      body.appendChild(inst.el);
-      next.push(inst);
-    } else {
-      body.innerHTML = '<div>窓がありません</div><div style="font-size:.8em;color:var(--dim2)">決定 → 窓をえらぶ</div>';
-      next.push(null);
+    let e = null;
+    for (let k=0;k<POOL.length;k++){
+      if (taken.indexOf(k) < 0 && POOL[k].pid === want[i]){ e = POOL[k]; taken.push(k); break; }
     }
-    board.appendChild(slot);
+    if (!e){ e = makeSlot(want[i]); POOL.push(e); taken.push(POOL.length - 1); }
+    e.el.classList.remove('hide');
+    e.el.dataset.i = i;
+    e.el.style.gridColumn = cells[i].c;
+    e.el.style.gridRow = cells[i].r;
+    live.push(e.inst);
   }
-  live = next;
-  // 枠が document に入ってから寸法を計る（入る前は 0 になる）
+  // 使わなかった枠は片づける（窓を外したのだから、鳴っていたものは止まってよい）
+  const keepEls = [];
+  POOL = POOL.filter(function(e, k){
+    if (taken.indexOf(k) >= 0){ keepEls.push(e.el); return true; }
+    if (e.inst && e.inst.destroy) e.inst.destroy();
+    if (e.el.parentNode) e.el.parentNode.removeChild(e.el);
+    return false;
+  });
   live.forEach(function(inst){ if (inst && inst.resize) inst.resize(); });
   watchSizes();
   drawBar();
-  // 焦点を保つ
   const keep = focusEl && focusEl.dataset && focusEl.dataset.act === 'slot' ? +focusEl.dataset.i : 0;
-  setFocus(board.children[Math.min(keep, n-1)]);
+  setFocus(slotEl(Math.min(keep, n-1)));
 }
 
 // 枠の大きさが変わったら窓に知らせる（型を切り替えたとき・TV の縁を変えたとき）
@@ -200,7 +222,8 @@ function watchSizes(){
       if (live[i] && live[i].resize) live[i].resize();
     });
   });
-  Array.prototype.forEach.call(board.children, function(slot){ RO.observe(slot); });
+  Array.prototype.forEach.call(board.querySelectorAll('.slot:not(.hide)'),
+    function(slot){ RO.observe(slot); });
 }
 
 // ---- 焦点 ------------------------------------------------------------
@@ -260,13 +283,15 @@ function enterInside(i){
   const inst = live[i];
   if (!inst){ openPick(i); return; }
   mode = 'inside';
-  board.children[i].classList.add('inside');
+  const el = slotEl(i);
+  if (el) el.classList.add('inside');
   if (inst.enter) inst.enter();
   drawHelp();
 }
 function leaveInside(){
   for (let i=0;i<live.length;i++){
-    if (board.children[i]) board.children[i].classList.remove('inside');
+    const el = slotEl(i);
+    if (el) el.classList.remove('inside');
     if (live[i] && live[i].leave) live[i].leave();
   }
   mode = 'board';
@@ -304,7 +329,7 @@ function closePick(){
   pick.innerHTML = '';
   mode = 'board';
   focusEl = null;
-  setFocus(board.children[Math.min(pickFor, slotCount()-1)]);
+  setFocus(slotEl(Math.min(pickFor, slotCount()-1)));
   drawHelp();
 }
 function put(id){
@@ -313,7 +338,7 @@ function put(id){
   save();
   closePick();
   drawBoard();
-  setFocus(board.children[Math.min(pickFor, slotCount()-1)]);
+  setFocus(slotEl(Math.min(pickFor, slotCount()-1)));
 }
 
 // ---- 設定 ------------------------------------------------------------
@@ -365,7 +390,7 @@ function openCfg(){
 function closeCfg(){
   cfgEl.classList.add('hide'); cfgEl.innerHTML = '';
   mode = 'board'; focusEl = null;
-  setFocus(board.children[0]);
+  setFocus(slotEl(0));
   drawHelp();
 }
 function cfgStep(k, dir){
@@ -407,7 +432,8 @@ document.addEventListener('keydown', function(e){
       e.preventDefault(); leaveInside(); return;
     }
     if (DIRS[e.key]){ e.preventDefault(); leaveInside(); nav(DIRS[e.key]); return; }
-    return;
+    // それ以外（1〜5・W・F）は盤の決まりへ落とす。**窓の中にいても
+    // かたちは替えられること。**BGM を鳴らしたまま盤を組み替えたい。
   }
 
   if (DIRS[e.key]){
@@ -433,7 +459,7 @@ document.addEventListener('keydown', function(e){
     else if (zoom >= 0) toggleZoom();
     return;
   }
-  if (mode !== 'board') return;
+  if (mode !== 'board' && mode !== 'inside') return;
 
   const k = e.key.toLowerCase();
   if (k === 'w'){ e.preventDefault();
@@ -445,6 +471,7 @@ document.addEventListener('keydown', function(e){
 });
 
 function setLayout(id){
+  if (mode === 'inside') leaveInside();   // 鳴っているものはそのまま
   zoom = -1;
   state.layout = id;
   save();

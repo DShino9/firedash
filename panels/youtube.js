@@ -87,7 +87,7 @@ export default {
       el.innerHTML = '<div class="play"><iframe allow="autoplay; encrypted-media" ' +
         'allowfullscreen src="' + esc(src) + '"></iframe>' +
         '<div class="foot"><span class="nm">' + esc(v.name) + '</span>' +
-        '<span>決定 とめる／ながす　左右 曲送り　M ' +
+        '<span>決定 とめる／ながす　左右 曲送り　上下 盤へ　M ' +
         (ctx.cfg.mute ? '音を出す' : '消音') + '　戻る 棚へ</span></div></div>';
       frame = el.querySelector('iframe');
       toggle.on = true;          // 流れている状態から始まる（最初の決定は「とめる」）
@@ -170,11 +170,13 @@ export default {
             ctx.cfg.mute = !ctx.cfg.mute; ctx.save();
             post('cmd', ctx.cfg.mute ? 'mute' : 'unMute');
             const f = el.querySelector('.foot span:last-child');
-            if (f) f.textContent = '決定 とめる／ながす　左右 曲送り　M ' +
+            if (f) f.textContent = '決定 とめる／ながす　左右 曲送り　上下 盤へ　M ' +
               (ctx.cfg.mute ? '音を出す' : '消音') + '　戻る 棚へ';
             return true;
           }
-          return true;                       // 流している間は盤に取られない
+          // **これ以外は盤に渡す。** 全部食べてしまうと、鳴らしている間
+          // かたちも替えられない（上下で枠から出る・1〜5でかたち・W で窓替え）。
+          return false;
         }
         const c = cols();
         let n = sel;
