@@ -63,7 +63,9 @@ export default {
         '.p-cal .hd .sub{color:var(--dim2);font-size:.82em}',
         '.p-cal .hd .sp{flex:1}',
         '.p-cal .hd .md{color:var(--dim2);font-size:.78em;border:1px solid var(--line);',
-        'border-radius:6px;padding:.05em .5em}',
+        'border-radius:7px;padding:.15em .6em;background:none;cursor:pointer;line-height:1.5}',
+        '.p-cal .hd .md.on{border-color:var(--accent);color:var(--accent);background:#152036}',
+        '.p-cal .hd .md:active{background:#22222b}',
         '.p-cal .dows{flex:none;display:grid;grid-template-columns:repeat(7,1fr);',
         'border-bottom:1px solid var(--line)}',
         '.p-cal .dows span{text-align:center;font-size:.78em;color:var(--dim2);padding:.15em 0}',
@@ -182,7 +184,9 @@ export default {
       let h = '<div class="hd"><b>' + y + '年' + (m+1) + '月</b>' +
         '<span class="sub">' + (sameDay(first, new Date(today.getFullYear(), today.getMonth(), 1))
           ? '今月' : '') + '</span><span class="sp"></span>' +
-        '<span class="md">月</span></div>';
+        '<button class="md on" data-go="month">月</button>' +
+        '<button class="md" data-go="week">週</button>' +
+        '<button class="md" data-go="pick">📅 選ぶ</button>' + '</div>';
       h += '<div class="dows">';
       for (let i=0;i<7;i++){
         h += '<span class="' + (i===0?'sun':(i===6?'sat':'')) + '">' + DOW[i] + '</span>';
@@ -238,8 +242,10 @@ export default {
       const today = new Date();
       let h = '<div class="hd"><b>' + (start.getMonth()+1) + '/' + start.getDate() +
         ' 〜 ' + (end.getMonth()+1) + '/' + end.getDate() + '</b>' +
-        '<span class="sub">' + start.getFullYear() + '年</span>' +
-        '<span class="sp"></span><span class="md">週</span></div><div class="week">';
+        '<span class="sub">' + start.getFullYear() + '年</span><span class="sp"></span>' +
+        '<button class="md" data-go="month">月</button>' +
+        '<button class="md on" data-go="week">週</button>' +
+        '<button class="md" data-go="pick">📅 選ぶ</button>' + '</div><div class="week">';
       const d = new Date(start);
       for (let i=0;i<7;i++){
         const key = ymd(d);
@@ -276,6 +282,22 @@ export default {
       if (view === 'pick') paintPick();
       else if (view === 'week') paintWeek();
       else paintMonth();
+      wire();
+    }
+
+    // 指で押したとき（Echo Show）。リモコンは onKey の方を通る。
+    function wire(){
+      el.querySelectorAll('[data-go]').forEach(function(b){
+        b.addEventListener('click', function(ev){
+          ev.stopPropagation();          // 枠ぜんたいの「中に入る」に食われないように
+          const to = b.dataset.go;
+          if (to === 'pick' && view !== 'pick'){ pick = 0; }
+          view = to; touched = Date.now(); paint();
+        });
+      });
+      el.querySelectorAll('.pk').forEach(function(row, i){
+        row.addEventListener('click', function(ev){ ev.stopPropagation(); pick = i; toggle(i); });
+      });
     }
 
     function pull(){
@@ -318,8 +340,10 @@ export default {
     // 入り切りの画面
     function paintPick(){
       let h = '<div class="hd"><b>出すカレンダー</b>' +
-        '<span class="sub">決定で入り切り</span><span class="sp"></span>' +
-        '<span class="md">選ぶ</span></div><div class="picks">';
+        '<span class="sub">押すと入り切り</span><span class="sp"></span>' +
+        '<button class="md" data-go="month">月</button>' +
+        '<button class="md" data-go="week">週</button>' +
+        '<button class="md on" data-go="pick">📅 選ぶ</button>' + '</div><div class="picks">';
       if (!all.length){
         h += '<div class="pk">まだ読めていません（入口ごしに開くと出ます）</div>';
       }
