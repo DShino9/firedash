@@ -23,6 +23,10 @@ const L = {};
 LAYOUTS.forEach(function(l){ L[l.id] = l; });
 
 const KEY = 'firedash-v1';   // 端末に残す控え。接頭辞は必ず firedash-（他アプリの控えを巻き込まない）
+// この画面の版。**正本は index.html の <meta name="ban"> だけ。** ここでは読むだけにする
+// （二か所に書くと、ずれた時に「新しい版があります」と言い続ける）。
+const BANEL = document.querySelector('meta[name="ban"]');
+const BAN = BANEL ? BANEL.getAttribute('content') : '?';
 
 // ---- 控え ------------------------------------------------------------
 const DEF = {
@@ -118,6 +122,18 @@ function drawBar(){
   bar.innerHTML = h;
 }
 
+// 「最新版に更新」。中身は共通部品（core/koushin.js。正本は shelf-core/）。
+// 手引きの帯は drawHelp() が書き換えるので、1回だけ作って毎回入れ直す。
+let koushin = null;
+function tsukeruKoushin(){
+  if (koushin) return;
+  koushin = Koushin.tsukeru({ ban: BAN, shirushi: 'firedash-', oya: help, na: '壁の盤' });
+  // リモコンの十字と決定で届くようにする。決定は act() から osu() を呼ぶ
+  // （el.click() にすると、盤の click 拾いと往復して止まらない）。
+  koushin.sara.setAttribute('data-nav', '');
+  koushin.sara.dataset.act = 'sara';
+}
+
 function drawHelp(){
   const t = {
     board : '<b>十字</b>えらぶ（上で帯へ）　<b>決定</b>中に入る　'
@@ -127,6 +143,7 @@ function drawHelp(){
     cfg   : '<b>十字</b>えらぶ　<b>左右</b>変える　<b>戻る</b>とじる'
   };
   help.innerHTML = t[mode] || '';
+  if (koushin) help.appendChild(koushin.box);
 }
 
 // 盤の枠は、**一度作ったら動かさない。**
@@ -511,6 +528,7 @@ function act(el){
   else if (a === 'slot') enterInside(+el.dataset.i);
   else if (a === 'put') put(el.dataset.id);
   else if (a === 'cfgclose') closeCfg();
+  else if (a === 'sara') koushin.osu();
   else if (a === 'reset'){
     state.layout = DEF.layout;
     state.slots = JSON.parse(JSON.stringify(DEF.slots));
@@ -532,6 +550,7 @@ function tickBar(){
 // ---- 始める ----------------------------------------------------------
 applyCfg();
 drawBoard();
+tsukeruKoushin();
 drawHelp();
 tickBar();
 setInterval(tickBar, 1000);
